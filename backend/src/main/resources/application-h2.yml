@@ -1,0 +1,10 @@
+# Quick-start profile: in-memory H2 in PostgreSQL compatibility mode.
+# Data is lost on restart. Use the default profile (PostgreSQL) for real use.
+spring:
+  datasource:
+    url: jdbc:h2:mem:socialdash;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true

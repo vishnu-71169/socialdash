@@ -1,0 +1,20 @@
+# backend
+backend/target/
+*.class
+*.log
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# local env / IDE
+.env
+.env.*
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# local tooling
+.claude/
