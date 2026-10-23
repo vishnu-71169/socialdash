@@ -31,7 +31,7 @@ app:
   # AES-256 key (base64, 32 bytes) used to encrypt platform access tokens at rest. Dev-only default.
   token-encryption-key: ${TOKEN_ENCRYPTION_KEY:c29jaWFsZGFzaC1kZXYtdG9rZW4ta2V5LTMyLWJ5dGU=}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
   demo:
     seed: ${DEMO_SEED:true}
   publishing:

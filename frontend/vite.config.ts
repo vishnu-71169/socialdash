@@ -6,7 +6,14 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/api': {
+        target: 'http://localhost:8080',
+        // The browser only talks to Vite, so proxied calls are same-origin. Dropping the Origin header keeps the
+        // backend's CORS check from rejecting them when Vite runs on another port, 127.0.0.1 or a LAN address.
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => proxyReq.removeHeader('origin'));
+        },
+      },
     },
   },
 });

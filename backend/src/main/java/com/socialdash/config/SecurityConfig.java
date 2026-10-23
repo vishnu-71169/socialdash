@@ -49,7 +49,8 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource(AppProperties props) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(props.cors().allowedOrigins());
+        // Patterns, so entries like http://localhost:* work for any local dev port.
+        config.setAllowedOriginPatterns(props.cors().allowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
