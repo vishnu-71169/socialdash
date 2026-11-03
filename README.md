@@ -84,6 +84,13 @@ cd backend
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=h2"
 ```
 
+To keep data between restarts without installing a database, use the `local` profile instead: same H2 database,
+saved to `backend/data/` (delete that folder to start fresh). Connected live accounts stay connected.
+
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
 #### Option B — PostgreSQL (data persists)
 
 The default profile expects PostgreSQL on `localhost:5432` with database, user and password all set to

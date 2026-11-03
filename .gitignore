@@ -1,5 +1,6 @@
 # backend
 backend/target/
+backend/data/
 *.class
 *.log
 

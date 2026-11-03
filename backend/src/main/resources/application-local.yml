@@ -1,0 +1,10 @@
+# Single-machine profile: H2 in PostgreSQL mode, saved to backend/data/ so connected accounts and history
+# survive restarts. No database server needed. Delete backend/data/ to start fresh.
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/socialdash;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
