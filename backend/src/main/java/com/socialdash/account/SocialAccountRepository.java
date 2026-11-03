@@ -15,4 +15,6 @@ public interface SocialAccountRepository extends JpaRepository<SocialAccount, Lo
     List<SocialAccount> findByIdInAndUserId(List<Long> ids, Long userId);
 
     boolean existsByUserIdAndPlatformAndHandleIgnoreCase(Long userId, Platform platform, String handle);
+
+    boolean existsByUserIdAndPlatformAndPlatformAccountId(Long userId, Platform platform, String platformAccountId);
 }

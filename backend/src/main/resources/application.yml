@@ -41,6 +41,20 @@ app:
     batch-size: 50
   simulation:
     publish-failure-rate: ${SIM_PUBLISH_FAILURE_RATE:0.15}
+  meta:
+    base-url: https://graph.facebook.com
+    api-version: ${META_API_VERSION:v26.0}
+    # Optional. Never commit these - set them as environment variables.
+    app-id: ${META_APP_ID:}
+    app-secret: ${META_APP_SECRET:}
+    # Live accounts are refreshed at most this often by the background jobs (Meta rate-limits API calls).
+    sync-interval-minutes: 15
+    # Days of history fetched when a live account is connected.
+    backfill-days: 14
+    instagram-views-metric: views
+    facebook-views-metric: page_media_view
+    facebook-reactions-metric: page_actions_post_reactions_total
+    facebook-post-views-metric: post_media_view
   scheduler:
     publish-interval-ms: 15000
     analytics-interval-ms: 120000

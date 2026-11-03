@@ -16,6 +16,12 @@ public final class AccountDtos {
             String handle,
             @Size(max = 150) String displayName) {}
 
+    /** A live Instagram professional account or Facebook Page, connected with a token from the Meta dashboard. */
+    public record ConnectMetaRequest(
+            @NotNull Platform platform,
+            @NotBlank @Size(max = 64) @Pattern(regexp = "^[0-9]+$", message = "numbers only") String accountId,
+            @NotBlank @Size(max = 2048) String accessToken) {}
+
     public record AccountResponse(
             Long id,
             Platform platform,

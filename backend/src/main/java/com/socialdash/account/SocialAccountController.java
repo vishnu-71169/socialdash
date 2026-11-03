@@ -2,6 +2,7 @@ package com.socialdash.account;
 
 import com.socialdash.account.AccountDtos.AccountResponse;
 import com.socialdash.account.AccountDtos.ConnectAccountRequest;
+import com.socialdash.account.AccountDtos.ConnectMetaRequest;
 import com.socialdash.security.AuthUser;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -36,6 +37,13 @@ public class SocialAccountController {
     public AccountResponse connectSimulated(@AuthenticationPrincipal AuthUser user,
                                             @Valid @RequestBody ConnectAccountRequest req) {
         return accountService.connectSimulated(user.id(), req);
+    }
+
+    @PostMapping("/meta")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AccountResponse connectMeta(@AuthenticationPrincipal AuthUser user,
+                                       @Valid @RequestBody ConnectMetaRequest req) {
+        return accountService.connectMeta(user.id(), req);
     }
 
     @PostMapping("/{id}/sync")

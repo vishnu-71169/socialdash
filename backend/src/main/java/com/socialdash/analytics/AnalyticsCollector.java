@@ -2,6 +2,7 @@ package com.socialdash.analytics;
 
 import com.socialdash.account.SocialAccount;
 import com.socialdash.account.SocialAccountRepository;
+import com.socialdash.config.AppProperties;
 import com.socialdash.integration.PlatformApiException;
 import com.socialdash.integration.PlatformClientRegistry;
 import com.socialdash.integration.SocialPlatformClient.DailyMetrics;
@@ -39,21 +40,29 @@ public class AnalyticsCollector {
     private final PostPublicationRepository publications;
     private final PlatformClientRegistry clients;
     private final TransactionTemplate tx;
+    /** Live accounts are refreshed less often than simulated ones to stay inside platform rate limits. */
+    private final Duration liveSyncInterval;
 
     public AnalyticsCollector(SocialAccountRepository accounts, AnalyticsSnapshotRepository snapshots,
                               PostAnalyticsRepository postAnalytics, PostPublicationRepository publications,
-                              PlatformClientRegistry clients, TransactionTemplate tx) {
+                              PlatformClientRegistry clients, TransactionTemplate tx, AppProperties props) {
         this.accounts = accounts;
         this.snapshots = snapshots;
         this.postAnalytics = postAnalytics;
         this.publications = publications;
         this.clients = clients;
         this.tx = tx;
+        this.liveSyncInterval = Duration.ofMinutes(props.meta().syncIntervalMinutes());
     }
 
     @Scheduled(fixedDelayString = "${app.scheduler.analytics-interval-ms:120000}", initialDelay = 10000)
     public void collectAll() {
+        Instant liveCutoff = Instant.now().minus(liveSyncInterval);
         for (SocialAccount account : accounts.findAll()) {
+            if (!account.isSimulated() && account.getLastSyncedAt() != null
+                    && account.getLastSyncedAt().isAfter(liveCutoff)) {
+                continue;
+            }
             try {
                 tx.executeWithoutResult(s -> collectAccount(accounts.findById(account.getId()).orElseThrow()));
             } catch (PlatformApiException | DataIntegrityViolationException e) {
@@ -62,6 +71,10 @@ public class AnalyticsCollector {
         }
         Instant now = Instant.now();
         for (PostPublication pub : publications.findPublishedSince(now.minus(POST_TRACKING_WINDOW))) {
+            if (!pub.getSocialAccount().isSimulated() && pub.getMetricsUpdatedAt() != null
+                    && pub.getMetricsUpdatedAt().isAfter(liveCutoff)) {
+                continue;
+            }
             try {
                 tx.executeWithoutResult(s ->
                         recordPostMetrics(publications.findById(pub.getId()).orElseThrow(), Instant.now(), false));

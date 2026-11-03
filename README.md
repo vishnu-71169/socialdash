@@ -18,17 +18,22 @@ Spring Data JPA/Hibernate, Spring Scheduler, Flyway) · PostgreSQL. A modular mo
 | **Social listening** | Track keywords/hashtags (optionally per platform), mention feed with search, daily volume chart vs previous period, trending co-occurring terms |
 | **Engagement management** | Unified inbox of comments, mentions and DMs; filter by status/type/platform/text; reply, resolve, reopen; average response time |
 
-### About "simulated" data
+### Live and simulated data
 
-Real platform APIs (Meta Graph API, X API, LinkedIn Marketing API) require approved developer apps and
-permissions that a personal account usually doesn't have. Every external call therefore goes through a single
-interface, `SocialPlatformClient`; today the only implementation is `SimulatedPlatformClient`, which:
+Every external call goes through a single interface, `SocialPlatformClient`, with two implementations:
+
+- **`MetaGraphClient` (live)** — real **Instagram professional accounts** and **Facebook Pages** through the Meta
+  Graph API: followers, daily views/likes/comments/shares, per-post metrics, comments in the inbox with replies, and
+  publishing text posts to Facebook Pages. See [Connecting Instagram and Facebook](#connecting-instagram-and-facebook).
+- **`SimulatedPlatformClient`** — used for X and LinkedIn (whose APIs need paid or partner access) and for any
+  account added as simulated. It:
 
 - generates **deterministic** daily metrics per account (stable history across restarts, weekday patterns, viral days),
 - simulates publishing — including random **rate-limit and timeout failures** (`SIM_PUBLISH_FAILURE_RATE`, default 15%) so retry handling is exercised,
 - produces mentions and interactions over time.
 
-Simulated accounts are labelled **Simulated** throughout the UI. See [Adding a real platform](#adding-a-real-platform).
+Accounts are labelled **Live** or **Simulated** throughout the UI. Social listening (keyword search) is always
+simulated, because the Meta APIs don't offer keyword search.
 
 ## Engineering highlights
 
@@ -145,9 +150,10 @@ Open <http://localhost:5173>. Vite proxies `/api` to the backend.
 cd backend && ./mvnw test
 ```
 
-Unit tests cover post-status derivation; integration tests (MockMvc + H2) cover auth, per-user isolation,
-analytics backfill, the publish-now → scheduler → published flow, the single-claim guarantee, cancellation and
-validation.
+Unit tests cover post-status derivation and the Meta client (response parsing, metric fallbacks, retryable vs.
+permanent errors, duplicate-post protection) against a mocked HTTP server; integration tests (MockMvc + H2) cover
+auth, per-user isolation, analytics backfill, connecting live accounts, the publish-now → scheduler → published flow,
+the single-claim guarantee, cancellation and validation.
 
 ## Configuration
 
@@ -156,9 +162,11 @@ validation.
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | `jdbc:postgresql://localhost:5432/socialdash` / `socialdash` / `socialdash` | Database |
 | `JWT_SECRET` | dev-only value | Base64 HMAC key, ≥ 32 bytes. **Change outside local dev** |
 | `TOKEN_ENCRYPTION_KEY` | dev-only value | Base64 32-byte AES key for platform tokens. **Change outside local dev** |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Allowed browser origins |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:*,http://127.0.0.1:*` | Allowed browser origins |
 | `DEMO_SEED` | `true` | Seed the demo user |
 | `SIM_PUBLISH_FAILURE_RATE` | `0.15` | Simulated publish failure probability |
+| `META_APP_ID` / `META_APP_SECRET` | empty | Optional. Lets the backend upgrade Facebook tokens to long-lived ones. **Never commit these** |
+| `META_API_VERSION` | `v26.0` | Graph API version |
 
 Scheduler intervals and retry settings live in `backend/src/main/resources/application.yml` under `app.*`.
 
@@ -169,7 +177,7 @@ All endpoints except `/api/auth/**` need `Authorization: Bearer <token>`.
 | Area | Endpoints |
 |---|---|
 | Auth / user | `POST /api/auth/register`, `POST /api/auth/login`, `GET/PUT /api/users/me`, `PUT /api/users/me/password` |
-| Accounts | `GET /api/accounts`, `POST /api/accounts/simulated`, `POST /api/accounts/{id}/sync`, `DELETE /api/accounts/{id}` |
+| Accounts | `GET /api/accounts`, `POST /api/accounts/simulated`, `POST /api/accounts/meta`, `POST /api/accounts/{id}/sync`, `DELETE /api/accounts/{id}` |
 | Analytics | `GET /api/analytics/overview`, `/platforms`, `/accounts`, `/trends`, `/posts`, `/posts/{publicationId}/history` — all accept `platform`, `accountId`, `startDate`, `endDate` |
 | Posts | `GET/POST /api/posts`, `GET /api/posts/summary`, `GET/PUT/DELETE /api/posts/{id}`, `POST /api/posts/{id}/cancel`, `POST /api/posts/{id}/retry` |
 | Listening | `GET/POST /api/listening/keywords`, `DELETE /api/listening/keywords/{id}`, `GET /api/listening/mentions`, `/volume`, `/top-terms` |
@@ -184,7 +192,7 @@ backend/src/main/java/com/socialdash/
   post/          posts, per-account publications, publishing scheduler
   listening/     keywords, mentions, collector job
   engagement/    interactions inbox, collector job
-  integration/   SocialPlatformClient boundary + simulator
+  integration/   SocialPlatformClient boundary, simulator, meta/ (live Graph API client)
   user/ security/ config/ common/ demo/
 backend/src/main/resources/db/migration/   Flyway SQL
 frontend/src/
@@ -193,18 +201,58 @@ frontend/src/
   api/ auth/ lib/
 ```
 
-## Adding a real platform
+## Connecting Instagram and Facebook
+
+Live accounts use your own Meta developer app in **Development mode**, which can read accounts you manage without
+Meta's App Review.
+
+1. At [developers.facebook.com](https://developers.facebook.com) create an app with the use cases
+   *Manage messaging & content on Instagram* and *Manage everything on your Page*. Leave it unpublished.
+2. **Instagram** (professional account required): in the Instagram use case, open *API setup with Unified login*,
+   connect a business portfolio, add the account as an *Instagram Tester* and accept the invite in Instagram. Create a
+   login configuration with `instagram_basic`, `instagram_manage_insights`, `instagram_manage_comments` and
+   `instagram_content_publish`, then *Generate token*. Note the numeric account ID shown under the account.
+3. **Facebook Page**: add `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`,
+   `pages_manage_posts`, `pages_manage_engagement` and `read_insights` to the Page use case. In the
+   [Graph API Explorer](https://developers.facebook.com/tools/explorer) generate a user token with those permissions
+   and select your Page; `me/accounts?fields=id,name` shows the Page ID.
+4. Optional, so Facebook tokens don't expire: set `META_APP_ID` and `META_APP_SECRET` (*App settings → Basic*) as
+   environment variables before starting the backend:
+
+   ```powershell
+   $env:META_APP_ID = "<your app id>"
+   $env:META_APP_SECRET = "<your app secret>"
+   .\mvnw.cmd spring-boot:run
+   ```
+5. In SocialDash go to **Accounts → Connect account → Live (Meta)**, pick the platform, and paste the ID and token.
+   The token is verified with Meta, stored encrypted (AES-GCM) and never returned by the API.
+
+How it behaves:
+
+- The last 14 days of history are fetched on connect; background jobs then refresh live accounts at most every
+  15 minutes (`app.meta.sync-interval-minutes`) to stay inside Meta's rate limits. **Sync now** refreshes immediately.
+- Meta renames and retires insights metrics; their names are configurable under `app.meta` in `application.yml`, and
+  a metric Meta rejects counts as 0 instead of failing the whole sync.
+- Rate-limit and temporary errors are retried; an expired or revoked token fails permanently with a message asking
+  for a new one.
+- Instagram's API only publishes photo/video posts, so text posts can't target a live Instagram account. Facebook
+  Pages accept text posts; because Meta has no idempotency keys, a retry first checks for an identical post from the
+  last hour so an ambiguous timeout never double-posts.
+- Facebook daily comments/shares are counted on posts created that day, since Page insights don't report them per day.
+- Follower history starts on the day you connect: Meta reports the current follower count, not past totals.
+
+## Adding another platform
 
 1. Register a developer app with the platform and obtain the needed scopes.
-2. Implement `SocialPlatformClient` for it (e.g. `InstagramGraphClient`) — map HTTP 429/5xx/timeouts to
-   `PlatformApiException(retryable = true)` and validation errors to `retryable = false`; pass the idempotency key
-   where the API supports one.
-3. Add an OAuth callback that stores the token via `TokenCipher` on a non-simulated `SocialAccount`.
+2. Implement `SocialPlatformClient` for it — map HTTP 429/5xx/timeouts to `PlatformApiException(retryable = true)`
+   and validation errors to `retryable = false`; pass the idempotency key where the API supports one.
+3. Store the token via `TokenCipher` on a non-simulated `SocialAccount` (see `SocialAccountService.connectMeta`).
 4. Return the new client from `PlatformClientRegistry.forAccount` for that platform.
 
 ## Roadmap
 
-- One real platform integration end to end (OAuth, refresh tokens, rate-limit headers)
+- OAuth sign-in flow for Meta instead of pasting tokens (needs a public HTTPS callback URL)
+- Instagram photo publishing (needs publicly reachable media URLs)
 - Sentiment classification of mentions (after data collection is solid)
 - Calendar view for scheduled posts, media uploads
 - Deployment config (container image, managed PostgreSQL)

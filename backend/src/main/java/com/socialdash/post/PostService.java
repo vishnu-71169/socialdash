@@ -1,5 +1,6 @@
 package com.socialdash.post;
 
+import com.socialdash.account.Platform;
 import com.socialdash.account.SocialAccount;
 import com.socialdash.account.SocialAccountRepository;
 import com.socialdash.common.ApiException;
@@ -190,6 +191,10 @@ public class PostService {
         }
         String content = req.content().trim();
         for (SocialAccount a : targets) {
+            if (req.action() != PostAction.DRAFT && !a.isSimulated() && a.getPlatform() == Platform.INSTAGRAM) {
+                throw ApiException.badRequest(a.getHandle() + " is a live Instagram account, and Instagram only "
+                        + "accepts photo or video posts. Remove it from this text post.");
+            }
             int max = a.getPlatform().getMaxPostLength();
             if (content.length() > max) {
                 throw ApiException.badRequest(a.getPlatform() + " posts are limited to " + max + " characters");
