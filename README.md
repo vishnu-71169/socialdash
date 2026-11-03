@@ -55,33 +55,62 @@ Simulated accounts are labelled **Simulated** throughout the UI. See [Adding a r
 
 ## Running locally
 
-Prerequisites: **JDK 21+**, **Node 18+**, and either Docker (for PostgreSQL) or nothing (H2 quick-start).
-Maven is not required — use the included wrapper.
+Prerequisites: **JDK 21+** and **Node 18+**. Maven is not required — use the included wrapper.
+PostgreSQL is optional: the quick start below uses an in-memory database.
+
+If `java -version` shows an older Java, point `JAVA_HOME` at your JDK 21+ folder first
+(PowerShell: `$env:JAVA_HOME = "C:\Program Files\Java\jdk-21"`, adjusting the path to your install).
 
 ### 1. Backend
 
-With PostgreSQL (default profile):
+#### Option A — Quick start, no database setup (recommended for trying it out)
 
-```bash
-docker compose up -d
-```
-
-```bash
-cd backend && ./mvnw spring-boot:run
-```
-
-Quick start without PostgreSQL (in-memory H2 in PostgreSQL mode; data resets on restart):
+Uses in-memory H2 in PostgreSQL mode. Nothing to install; data resets every time the backend restarts.
 
 ```bash
 cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=h2
 ```
 
-**Windows PowerShell 5.1** doesn't support `&&`; run the steps on separate lines and use `mvnw.cmd`:
+**Windows PowerShell 5.1** doesn't support `&&`; run the steps on separate lines, use `mvnw.cmd`, and keep the
+quotes around the `-D` argument:
 
 ```powershell
 cd backend
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=h2"   # omit the -D argument to use PostgreSQL
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=h2"
 ```
+
+#### Option B — PostgreSQL (data persists)
+
+The default profile expects PostgreSQL on `localhost:5432` with database, user and password all set to
+`socialdash`. Start one with Docker:
+
+```bash
+docker compose up -d
+```
+
+Or, with an existing PostgreSQL install, run this once as the `postgres` superuser (psql or pgAdmin):
+
+```sql
+CREATE USER socialdash WITH PASSWORD 'socialdash';
+CREATE DATABASE socialdash OWNER socialdash;
+```
+
+Then start the backend without the profile argument:
+
+```bash
+cd backend && ./mvnw spring-boot:run
+```
+
+PowerShell 5.1:
+
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+> **Seeing `PSQLException` on startup?** The backend can't reach PostgreSQL — it isn't running, or the
+> `socialdash` user/database doesn't exist. Use Option A, or fix the database as described in Option B.
+> Different connection details can be supplied via `DB_URL`, `DB_USERNAME` and `DB_PASSWORD` (see Configuration).
 
 The API runs on <http://localhost:8080>
 (Swagger UI: <http://localhost:8080/swagger-ui.html>).
